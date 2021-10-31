@@ -1,13 +1,13 @@
-simplex <- function(K_fold,J,z,rawbasis,ni,Q2,K){
+simplex <- function(K_fold,J,z,rawbasis,ni,Q2,K,init){
   source("../functions/mFPC/CV_mFPCA.R")
   alpha=0.5  #default 1
   beta=0.5
   gamma=0.5 # default 2
   
   design = matrix(ncol=2,nrow=3)
-  design[1,]=c(5,0.01) #default c(5,0) #Jun 3, 2020
-  design[2,]=c(0.01,5) #default c(0,5) #Jun 3, 2020
-  design[3,]=0.618*c(5,5)
+  design[1,]=c(init[1],0.0001) #default c(5,0) #Jun 3, 2020
+  design[2,]=c(0.0001,init[2]) #default c(0,5) #Jun 3, 2020
+  design[3,]=0.618*c(init[1],init[2])
   y=rep(0,3)
   for(i in 1:3){
     y[i] = CrossVal(K_fold,J,z,rawbasis,ni,Q2,K,design[i,1],design[i,2])
@@ -15,7 +15,10 @@ simplex <- function(K_fold,J,z,rawbasis,ni,Q2,K){
   
   ## Simplex Algorithm
   iter=1
-  while(sd(y/(mean(y)+0.0001))>0.05 & iter<20)
+  print("the criteria is")
+  print(sd(y/(mean(y)+0.00001)))
+  
+  while(sd(y/(mean(y)+0.00001))>0.0001 & iter<20)
   {
     # ind_h=(1:3)[y==max(y)]
     # ind_l=(1:3)[y==min(y)]
@@ -64,6 +67,8 @@ simplex <- function(K_fold,J,z,rawbasis,ni,Q2,K){
     }
     #print(cbind(design,y))
     iter=iter+1
+    print("the criteria is")
+  	print(sd(y/(mean(y)+0.00001)))
   }
   index=which(y==min(y))
   penalty = design[index[1],]

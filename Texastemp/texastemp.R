@@ -208,7 +208,7 @@ P=t(omat)%*%Ene%*%(omat)  #with orthogonalizations
 ####### tFPCA #######
 
 set.seed(1)
-J=3    # number of principal component vectors
+J=3   # number of principal component vectors
 
 splinebasis = create.fourier.basis(c(0,length(ni)), nbasis=51, period = 12)
 basismatrix = eval.basis(0:(length(ni)-1), splinebasis)
@@ -218,31 +218,11 @@ polybasis = bs(1:length(ni),#knots=c(66)*12,
 basismatrix = cbind(basismatrix,polybasis)
 
 
-#basismatrix = cbind(basismatrix,(1:nrow(basismatrix))/nrow(basismatrix),((1:nrow(basismatrix))^2)/(nrow(basismatrix)^2),((1:nrow(basismatrix))^3)/(nrow(basismatrix)^3))
-
-#test = t(basismatrix) %*% basismatrix
-
-
 names(basismatrix) = NULL
 Pt = fourierpen(splinebasis)
 
 Pt = cbind(Pt, matrix(0,ncol=ncol(basismatrix)-51,nrow=nrow(Pt)))
 Pt = rbind(Pt, matrix(0,nrow=ncol(basismatrix)-51,ncol=ncol(Pt)))
-
-
-#Pt = cbind(Pt,0,0,0) # penalty matrix for Fourier basis with cubic polynomial basis
-#Pt = rbind(Pt,0,0,0)
-
-
-# qr decomposition to make it orthonormal
-#basisprime = qr(basismatrix)
-#basismatrix1 = qr.Q(basisprime)
-#orthoterm = qr.R(basisprime)
-
-#Pt1 = t(solve(orthoterm)) %*% Pt %*% solve(orthoterm)
-
-#basismatrix = basismatrix1
-#Pt = Pt1
 
 
 
@@ -267,26 +247,47 @@ p=2
 
 
 
+### test, Oct 26, 2021
 
+source("../functions/tFPC/CV_tFPCA_realdata.R")
+grid_mus = c(1,100,10000)
+grid_mut = c(0.0001,0.01, 0.1)
+grid_pc = c(1,100,10000)
+
+grid_mupc = expand.grid(grid_mus, grid_mut, grid_pc)
+
+
+one_CV <- function(i,basis,P,basismatrix,Pt,z,V,Tri,t,d,r,J,p,ni,grid_mupc){
+    tmp=try({CrossVal(K_fold=5,basis,P,basismatrix,Pt,z,V,Tri,t,d,r,J,p,ni,grid_mupc[i,1],grid_mupc[i,2],grid_mupc[i,3],"EMalgorithm")},silent=TRUE)
+    tmp = ifelse(class(tmp)=="try-error",10000,tmp)
+    print(i)
+    print(c(tmp,unlist(grid_mupc[i,])))
+    return(c(tmp,unlist(grid_mupc[i,])))
+}
+
+    
+penalty_result = NULL
+for(i in 1:nrow(grid_mupc)){
+    tmp = one_CV(i,basis,P,basismatrix,Pt,z,V,Tri,length(ni),d,r,J,p,ni,grid_mupc)
+    penalty_result <- rbind(penalty_result, tmp)
+}
+
+init = penalty_result[which.min(penalty_result[,1]),-1]
+
+
+### end test, Oct 26, 2021
 
 set.seed(2)
-init = c(10000,0.0001,10000) #default (10000,0.0001,10000) 
+#init = c(10000,0.0001,10000) #default (10000,0.0001,10000) 
 
 source("../functions/tFPC/tFPCA_simplex_realdata.R")
 
-#penalty = simplex(K_fold=5,basis,P,basismatrix,Pt,z,V,Tri,length(ni),d,r,J,p,ni,init,"EMalgorithm")
+penalty = simplex(K_fold=5,basis,P,basismatrix,Pt,z,V,Tri,length(ni),d,r,J,p,ni,init,"EMalgorithm")
 #save.image(file="1.RData")
 
-#save.image("test.RData")
 
-#penalty = list(c(8029.167,0.000076125,9695.833))
-#penalty = list(c(6000,0.0000618,6000))
+#penalty = list(c(6180, 0.0000618, 6180),1)
 
-penalty = list(c(6180, 0.0000618, 6180),1)
-
-
-
-#penalty = list(c(1,0.00006,3000))
 lambmus = penalty[[1]][1]
 lambmut = penalty[[1]][2]
 lambpc  = penalty[[1]][3]
@@ -318,24 +319,24 @@ test = EMinit(z,basis,basismatrix,ni,thetab0,thetac0,P,Pt,lambdab,lambdac)
 thetab0 = test$thetab
 thetac0 = test$thetac
 
-# mu0 = basis[1:ni[1],] %*% thetab0 %*% t(thetac0) %*% basismatrix[1,]
-# for(t in 2:length(ni)){
-#     temp = basis[sum(ni[1:(t-1)]) + 1:ni[t], ] %*% thetab0 %*% t(thetac0) %*% basismatrix[t,]
-#     mu0 = c(mu0,temp)
-# }
-# pcpart = z - mu0
-# 
-# f = NULL
-# for(t in 1:length(ni)){
-#     Bt = basis[indfunc(t,ni),]
-#     pcpart_t = pcpart[indfunc(t,ni)]
-#     ft = solve(t(Bt) %*% Bt +  0.001 * diag(ncol(Bt))) %*% t(Bt) %*% pcpart_t
-#     f = cbind(f,ft)
-# }
-# 
-# sv = svd(f,nu=J)
-# Theta0 = sv$u
-# HJ0 = diag(sv$d[1:J]^2)/length(ni)
+mu0 = basis[1:ni[1],] %*% thetab0 %*% t(thetac0) %*% basismatrix[1,]
+for(t in 2:length(ni)){
+    temp = basis[sum(ni[1:(t-1)]) + 1:ni[t], ] %*% thetab0 %*% t(thetac0) %*% basismatrix[t,]
+    mu0 = c(mu0,temp)
+}
+pcpart = z - mu0
+
+f = NULL
+for(t in 1:length(ni)){
+    Bt = basis[indfunc(t,ni),]
+    pcpart_t = pcpart[indfunc(t,ni)]
+    ft = solve(t(Bt) %*% Bt +  0.001 * diag(ncol(Bt))) %*% t(Bt) %*% pcpart_t
+    f = cbind(f,ft)
+}
+
+sv = svd(f,nu=J)
+Theta0 = sv$u
+HJ0 = diag(sv$d[1:J]^2)/length(ni)
 
 
 
@@ -346,6 +347,25 @@ system.time({parameters = EMalgorithm(z,basis,basismatrix,P,Pt,ni,HJ0,thetab0,th
 thetabhat = parameters$thetab
 thetachat = parameters$thetac
 Thetahat = parameters$Theta
+
+
+# to present the number of PCs
+# pdf("scree.pdf", height=2,width=4)
+# par(mar=c(3.5,3.5,3,3))
+# plot(diag(parameters$HJ),type="b",pch=19,xlab="",ylab="",ylim=c(0,parameters$HJ[1,1] + 1000),main="Scree Plot")
+# mtext("index of pc", side=1, line=2)
+# mtext("variance",side=2, line=2)
+# dev.off()
+# 
+# pdf("scree2.pdf",height=4,width=4)
+# par(mar=c(3.5,3.5,3,3))
+# varHJ = diag(parameters$HJ)
+# cumvarHJ = c(varHJ[1],sum(varHJ[1:2]),sum(varHJ[1:3]),sum(varHJ[1:4]))
+# plot(cumvarHJ/cumvarHJ[4],type="b",pch=19, xlab="",ylab="",main="Screen Plot",ylim=c(0.5,1.0))
+# abline(h=0.99,col="red")
+# mtext("index of pc", side=1, line=2)
+# mtext("cummulative var %",side=2, line=2)
+# dev.off()
 
 ####### muhat is ready to visualize #########
 muhat = basis[1:ni[1],] %*% thetabhat %*% t(thetachat) %*% basismatrix[1,]
@@ -387,6 +407,8 @@ ym = rep(NA,m*n)
 
 zhat1_tFPCA = zhat1
 summary(zhat1_tFPCA)
+
+save.image(file="100years.RData")
 
 # 
 # 
@@ -479,25 +501,7 @@ temp_Jan = temp_Jan/(length(seq(1,length(ni),by=12)))
 temp_Aug = temp_Aug/(length(seq(1,length(ni),by=12)))
 
 
-# pdf("test1.pdf",height=4*6,width=4*2+1)
-# par(mfrow=c(6,2),mar=c(4,3,2,5),oma=c(2,3,2,2))
-# for(j in 1:12){
-#     temp_test = rep(0,nnp)
-#     for(i in seq(j,length(ni),by=12)){
-#         temp_test = temp_test + zhat1_tFPCA[(i-1)*nnp+1:nnp]
-#     }
-#     temp_test = temp_test/(length(seq(1,length(ni),by=12)))
-#     fig = matrix(NA,ncol=m,nrow=n)
-#     fig[ind] = temp_test
-#     image.plot(xm,yn,fig,col=my.colors(50),xlab="",ylab="",main=paste("Estimated Temperature Average", sep=" "),
-#                zlim=c(-10,50),xaxt="n",cex.axis=1.2,cex.main=1.5)
-#     axis(side=1,at = c(-106,-102,-98,-94),labels=c(-106,-102,-98,-94),cex.axis=1.2)
-#     mtext("Longitude",side=1,line=3.0,cex=1.2)
-#     mtext("Latitude",side=2,line=3.0,cex=1.2)
-# }
-# dev.off()
-
-pdf("test.pdf",height=4*2,width=4*2+1)
+pdf("tFPC_temp.pdf",height=4*2,width=4*2+1)
 par(mfrow=c(2,2),mar=c(4,3,2,5),oma=c(2,3,2,2))
 plot(1, type='n',main="Yearly-Average Temperature",xlim=c(0,101),ylim=c(10,25),ylab="", xlab="", xaxt="n",yaxt="n", cex.main=1.5)
 axis(side=1, at=c(6,26,46,66,86),labels=c(1920,1940,1960,1980,2000),cex.axis=1.2)
@@ -549,48 +553,6 @@ contour(xm,yn,fig,levels=c(24,30)
 dev.off()
 
 
-pdf("texastemp_tFPC.pdf",height=4,width=4*3-0.2)
-par(mfrow=c(1,3),mar=c(4,3,2,3),oma=c(2,3,2,2))
-#1
-plot(1, type='n',main="Estimated Yearly Average Temperature",xlim=c(0,101),ylim=c(5,30),ylab="", xlab="", xaxt="n",yaxt="n", cex.main=1.5)
-axis(side=1, at=c(6,26,46,66,86),labels=c(1920,1940,1960,1980,2000),cex.axis=1.2)
-axis(side=2,at=c(5,10,15,20,25,30),labels=c(5,10,15,20,25,30),cex.axis=1.2)
-mtext("Year",side=1,line=3.0,cex=1.2)
-mtext("Temperature in Degree Celsius",side=2,line=3.0,cex=1.2)
-for(i in 1:49){
-    points(yearly.mean[,i],col=i,cex=0.1)
-}
-lines(apply(yearly.mean,1,function(x){return(mean(x,na.rm=TRUE))}),lwd=2)
-abline(h=c(20,18,16))
-lines(yearly.temp_est,col="red",lwd=2)
-legend(x=0,y=30,legend=c("tFPC estimated","raw data"),col=c("red","black"),lty=c(1,1))
-
-#2
-periodicity_est.average = apply(periodicity_est,1,mean)
-
-plot(periodicity_est.average,type="l",main="One Period of Temperature",xaxt="n",#yaxt="n",
-     xlab="",ylab="",cex.axis=1.2, cex.main=1.5,lwd=2.5,ylim=c(0,35))
-mtext("Month",side=1,line=3.0,cex=1.2)
-mtext("Temperature in Degree Celsius",side=2,line=3.0,cex=1.2)
-for(i in 1:49){
-    lines(periodicity.average[,i],col=rgb(255,0,0,80,maxColorValue=255),lty=3)
-}
-axis(side=1, at=c(1,3,5,7,9,11),labels=c("Jan","Mar","May","Jul","Sep","Nov"),cex.axis=1.2)
-
-
-#3
-fig = matrix(NA,ncol=m,nrow=n)
-fig[ind] = temp_spatial
-image.plot(xm,yn,fig,col=my.colors(50),xlab="",ylab="",main=paste("Estimated Temperature Average", sep=" "),
-           zlim=c(-10,50),xaxt="n",cex.axis=1.2,cex.main=1.5)
-axis(side=1,at = c(-106,-102,-98,-94),labels=c(-106,-102,-98,-94),cex.axis=1.2)
-mtext("Longitude",side=1,line=3.0,cex=1.2)
-mtext("Latitude",side=2,line=3.0,cex=1.2)
-#contour(xm,yn,fig,levels= c(16,20)#round(seq(min(fig[ind]),max(fig[ind]),length=10),2)
-#        , labcex=1.2, add=TRUE)
-
-dev.off()
-
 
 
 
@@ -601,7 +563,7 @@ ym[ind] = basis1 %*% parameters$Theta[,1]
 image.plot(xm,yn,matrix(ym,nrow=m),col=my.colors(50),xlab="",ylab="",main="First PC function",zlim=c(-0.07,0.07),cex.main=1.5,xaxt="n",yaxt="n")
 axis(side=1,at=c(-106,-102,-98,-94),labels=c(-106,-102,-98,-94),cex.axis=1.2)
 axis(side=2,at=c(26,28,30,32,34,36),labels=c(26,28,30,32,34,36),cex.axis=1.2)
-contour(xm,yn,matrix(ym,m,n), levels= round(seq(min(ym[ind]),max(ym[ind]),length=5),2), labcex=1.2, add = TRUE) #round(seq(min(ym[ind]),max(ym[ind]),length=15),2),add=TRUE)
+contour(xm,yn,matrix(ym,m,n), levels= round(seq(min(ym[ind]),max(ym[ind]),length=4),2), labcex=1.2, add = TRUE) #round(seq(min(ym[ind]),max(ym[ind]),length=15),2),add=TRUE)
 
 ym[ind] = basis1 %*% parameters$Theta[,2]
 image.plot(xm,yn,matrix(ym,nrow=m),col=my.colors(50),xlab="",ylab="",main="Second PC function",zlim=c(-0.07,0.07),cex.main=1.5,xaxt="n",yaxt="n")
@@ -618,6 +580,70 @@ contour(xm,yn,matrix(ym,m,n), labcex=1.2, add=TRUE)#levels= c(-0.25,-0.2,-0.15,-
 #round(seq(min(ym[ind]),max(ym[ind]),length=10),2),add=TRUE)
 
 dev.off()
+
+
+
+# pdf("test1.pdf",height=4*6,width=4*2+1)
+# par(mfrow=c(6,2),mar=c(4,3,2,5),oma=c(2,3,2,2))
+# for(j in 1:12){
+#     temp_test = rep(0,nnp)
+#     for(i in seq(j,length(ni),by=12)){
+#         temp_test = temp_test + zhat1_tFPCA[(i-1)*nnp+1:nnp]
+#     }
+#     temp_test = temp_test/(length(seq(1,length(ni),by=12)))
+#     fig = matrix(NA,ncol=m,nrow=n)
+#     fig[ind] = temp_test
+#     image.plot(xm,yn,fig,col=my.colors(50),xlab="",ylab="",main=paste("Estimated Temperature Average", sep=" "),
+#                zlim=c(-10,50),xaxt="n",cex.axis=1.2,cex.main=1.5)
+#     axis(side=1,at = c(-106,-102,-98,-94),labels=c(-106,-102,-98,-94),cex.axis=1.2)
+#     mtext("Longitude",side=1,line=3.0,cex=1.2)
+#     mtext("Latitude",side=2,line=3.0,cex=1.2)
+# }
+# dev.off()
+# 
+# pdf("texastemp_tFPC.pdf",height=4,width=4*3-0.2)
+# par(mfrow=c(1,3),mar=c(4,3,2,3),oma=c(2,3,2,2))
+# #1
+# plot(1, type='n',main="Estimated Yearly Average Temperature",xlim=c(0,101),ylim=c(5,30),ylab="", xlab="", xaxt="n",yaxt="n", cex.main=1.5)
+# axis(side=1, at=c(6,26,46,66,86),labels=c(1920,1940,1960,1980,2000),cex.axis=1.2)
+# axis(side=2,at=c(5,10,15,20,25,30),labels=c(5,10,15,20,25,30),cex.axis=1.2)
+# mtext("Year",side=1,line=3.0,cex=1.2)
+# mtext("Temperature in Degree Celsius",side=2,line=3.0,cex=1.2)
+# for(i in 1:49){
+#     points(yearly.mean[,i],col=i,cex=0.1)
+# }
+# lines(apply(yearly.mean,1,function(x){return(mean(x,na.rm=TRUE))}),lwd=2)
+# abline(h=c(20,18,16))
+# lines(yearly.temp_est,col="red",lwd=2)
+# legend(x=0,y=30,legend=c("tFPC estimated","raw data"),col=c("red","black"),lty=c(1,1))
+# 
+# #2
+# periodicity_est.average = apply(periodicity_est,1,mean)
+# 
+# plot(periodicity_est.average,type="l",main="One Period of Temperature",xaxt="n",#yaxt="n",
+#      xlab="",ylab="",cex.axis=1.2, cex.main=1.5,lwd=2.5,ylim=c(0,35))
+# mtext("Month",side=1,line=3.0,cex=1.2)
+# mtext("Temperature in Degree Celsius",side=2,line=3.0,cex=1.2)
+# for(i in 1:49){
+#     lines(periodicity.average[,i],col=rgb(255,0,0,80,maxColorValue=255),lty=3)
+# }
+# axis(side=1, at=c(1,3,5,7,9,11),labels=c("Jan","Mar","May","Jul","Sep","Nov"),cex.axis=1.2)
+# 
+# 
+# #3
+# fig = matrix(NA,ncol=m,nrow=n)
+# fig[ind] = temp_spatial
+# image.plot(xm,yn,fig,col=my.colors(50),xlab="",ylab="",main=paste("Estimated Temperature Average", sep=" "),
+#            zlim=c(-10,50),xaxt="n",cex.axis=1.2,cex.main=1.5)
+# axis(side=1,at = c(-106,-102,-98,-94),labels=c(-106,-102,-98,-94),cex.axis=1.2)
+# mtext("Longitude",side=1,line=3.0,cex=1.2)
+# mtext("Latitude",side=2,line=3.0,cex=1.2)
+# #contour(xm,yn,fig,levels= c(16,20)#round(seq(min(fig[ind]),max(fig[ind]),length=10),2)
+# #        , labcex=1.2, add=TRUE)
+# 
+# dev.off()
+
+
 
 #save.image(file="100years.RData")
 

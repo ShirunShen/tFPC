@@ -116,11 +116,13 @@ CrossVal <- function(K_fold,J,z,basis,P,ni,lambmu,lambpc){
       if(ni_k[i] == 1){Di = temp2$d}
       Ui = temp2$u
       Vi = temp2$v
-      temp3 = zi-Bi%*%thetamuhat
-      lik_ki = as.numeric(t(temp3) %*% Vi %*% Di %*% t(Ui) %*% temp3) +  log(sum(temp2$d))
+#     temp3 = zi-Bi%*%thetamuhat
+#     lik_ki = as.numeric(t(temp3) %*% Vi %*% Di %*% t(Ui) %*% temp3) +  log(sum(temp2$d))
+	  temp3 = zi - Bi %*% thetamuhat - Bi %*% Thetahat %*% alphahat[,i]
+	  lik_ki = as.numeric(sum(temp3^2))
       lik_k = lik_k + lik_ki
 
-    }
+    } #loop i
     neglik = neglik + lik_k
   } #loop k
   

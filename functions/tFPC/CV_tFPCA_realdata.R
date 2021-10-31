@@ -7,8 +7,6 @@ CrossVal <- function(K_fold,basis,P,basismatrix,Pt,z,point,edges,n,d,r,J,p,ni,la
     nc = ncol(basismatrix)
     I_nb = diag(nb)
     
-    
-    #set.seed(2) for whole data
     set.seed(3)
     indseq = sample(1:ni[1], ni[1], replace=FALSE)
     for(i in 2:length(ni)){
@@ -87,6 +85,33 @@ CrossVal <- function(K_fold,basis,P,basismatrix,Pt,z,point,edges,n,d,r,J,p,ni,la
     thetac0 = runif(nc,-1,1)
     thetac0 = thetac0/norm(thetac0)
     
+    
+    #test, Oct 26, 2021
+    lambdab = 0.001
+    lambdac = 0.001
+    test = EMinit(z_negk,basis_negk,basismatrix,ni_negk,thetab0,thetac0,P,Pt,lambdab,lambdac)
+    thetab0 = test$thetab
+    thetac0 = test$thetac
+    
+    mu0 = basis_negk[1:ni_negk[1],] %*% thetab0 %*% t(thetac0) %*% basismatrix[1,]
+	for(t in 2:n){
+    	temp = basis_negk[sum(ni_negk[1:(t-1)]) + 1:ni_negk[t], ] %*% thetab0 %*% t(thetac0) %*% basismatrix[t,]
+    	mu0 = c(mu0,temp)
+	}
+	pcpart = z_negk - mu0
+
+	f = NULL
+	for(t in 1:n){
+    	Bt = basis_negk[indfunc(t,ni_negk),]
+    	pcpart_t = pcpart[indfunc(t,ni_negk)]
+    	ft = solve(t(Bt) %*% Bt +  0.0001 * diag(ncol(Bt))) %*% t(Bt) %*% pcpart_t
+    	f = cbind(f,ft)
+	}
+
+	sv = svd(f,nu=J)
+	Theta0 = sv$u
+	HJ0 = diag(sv$d[1:J]^2)/length(ni_negk)
+    
     EM = EMalgorithm(z_negk,basis_negk,basismatrix,P,Pt,ni_negk,HJ0,thetab0,thetac0,Theta0,K0,sigma20,lambmus,lambmut,lambpc)
     #print("The number of iterations in EM algorithm")
     #print(EM$iter)
@@ -115,7 +140,7 @@ CrossVal <- function(K_fold,basis,P,basismatrix,Pt,z,point,edges,n,d,r,J,p,ni,la
       #At_k = Bt_k %*% kronecker(I_nb,t(basismatrix[t,]))
       alphahat_t = alphahat[(t-1)*J+1:J]
       temp = (zt_k - Bt_k %*% theta_bc %*% basismatrix[t,] - Bt_k %*% Thetahat %*% alphahat_t)
-      loglik = loglik + t(temp)%*%temp/sigma2hat #+ ni_k[t]*log(sigma2hat)
+      loglik = loglik + t(temp)%*%temp #+ ni_k[t]*log(sigma2hat)
       
       
       #if(t>p){
@@ -128,6 +153,7 @@ CrossVal <- function(K_fold,basis,P,basismatrix,Pt,z,point,edges,n,d,r,J,p,ni,la
     }
     #logprior = logprior + (n-p)*log(sum(sqrt(diag(HJhat))))
     
+    print(loglik)
     sum_neglik = sum_neglik + loglik #+ logprior
     #print("summation of negative likelihood")
     #print(sum_neglik)

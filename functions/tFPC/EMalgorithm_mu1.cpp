@@ -258,7 +258,44 @@ arma::vec theta_b_update(const arma::vec& z_t,
     return theta_b_t;
 }
 
-
+//[[Rcpp::export]]
+arma::vec theta_b_update_mu1(const arma::vec& z_t,
+                             const arma::mat& B_t,
+                             const arma::mat& c_t,
+                             const arma::vec& theta_c_t,
+                             const arma::vec& thetab0_t,
+                             const arma::mat& Theta_t,
+                             const arma::vec& alphahat_t,
+                             const arma::mat& Ps_t,
+                             const arma::vec& ni_t,
+                             const double& sigma2_t,
+                             const double& lambmu1_t){
+    int n_t = ni_t.n_elem;
+    int J = Theta_t.n_cols;
+    int nb = B_t.n_cols;
+    //int nc = c_t.n_cols;
+    arma::vec temp = zeros(nb);
+    arma::mat temp2 = zeros(nb, nb);
+    arma::vec theta_b_t = zeros(nb);
+    
+    
+    for(int t = 1; t <= n_t; t++){
+        arma::vec zt = sub_v(z_t, ni_t, t);
+        arma::mat Bt = sub_m(B_t, ni_t, t);
+        arma::vec ct = c_t.row(t-1).t();
+        arma::vec alphahatt = alphahat_t.subvec((t-1)*J, t*J-1);
+        arma::mat tem = theta_c_t.t() * ct;
+        double    temp3 = tem(0,0);
+        temp = temp + temp3 * Bt.t() * (zt - Bt * Theta_t * alphahatt);
+        temp2 = temp2 + (temp3 * temp3) * Bt.t() * Bt;
+    }
+    temp2 = temp2 + sigma2_t * lambmu1_t * Ps_t;
+    
+    arma::mat A_t = temp2;
+    arma::vec m_t = inv(A_t) * temp;
+    
+    return m_t;
+}
 
 
 
@@ -489,6 +526,41 @@ arma::vec theta_b_init(const arma::vec& z_t,
 }
 
 //[[Rcpp::export]]
+arma::vec theta_b_init_mu1(const arma::vec& z_t,
+                           const arma::mat& B_t,
+                           const arma::mat& c_t,
+                           const arma::vec& thetab0_t,
+                           const arma::vec& theta_c_t,
+                           const arma::vec& ni_t,
+                           const arma::mat& Ps_t,
+                           const double lambda){
+    int n_t = ni_t.n_elem;
+    int nb  = B_t.n_cols;
+    
+    arma::vec temp = zeros(nb);
+    arma::mat temp2 = zeros(nb,nb);
+    arma::vec theta_b_t = zeros(nb);
+    
+    for(int t=1; t<=n_t; t++){
+        arma::vec zt = sub_v(z_t, ni_t, t);
+        arma::mat Bt = sub_m(B_t, ni_t, t);
+        arma::vec ct = c_t.row(t-1).t();
+        arma::mat tem = theta_c_t.t() * ct;
+        double temp3 = tem(0,0);
+        temp = temp + temp3 * Bt.t() * zt;
+        temp2 = temp2 + (temp3 * temp3) * Bt.t() * Bt;
+    }
+    temp2 = temp2 + lambda * Ps_t;
+    arma::mat A_t = temp2;
+    arma::vec m_t = inv(A_t) * temp;
+    
+    //theta_b_t = m_t;
+    
+    return m_t;
+}
+
+
+//[[Rcpp::export]]
 arma::vec theta_c_init(const arma::vec& z_t,
                        const arma::mat& B_t,
                        const arma::mat& c_t,
@@ -553,8 +625,8 @@ List EMinit(const arma::vec& z_em,
         arma::vec thetab_old = thetab_em;
         arma::vec thetac_old = thetac_em;
         
-        thetac_em = theta_c_init(z_em,B_em,c_em,thetab_em,thetac_em,ni_em,Pt_em,lambdac_em);
-        thetab_em = theta_b_init(z_em,B_em,c_em,thetab_em,thetac_em,ni_em,Ps_em,lambdab_em);
+        //thetac_em = theta_c_init(z_em,B_em,c_em,thetab_em,thetac_em,ni_em,Pt_em,lambdac_em);
+        thetab_em = theta_b_init_mu1(z_em,B_em,c_em,thetab_em,thetac_em,ni_em,Ps_em,lambdab_em);
         
         arma::vec criteria0 = zeros(2);
         criteria0(0) = norm(thetab_em - thetab_old)/norm(thetab_old);
@@ -566,6 +638,9 @@ List EMinit(const arma::vec& z_em,
     return List::create(Named("thetab") = thetab_em,
                         Named("thetac") = thetac_em);
 }
+
+
+
 
 
 
@@ -599,7 +674,7 @@ List EMalgorithm(const arma::vec& z_em,
     arma::vec      K_em = K0_em;
     
     
-    int Maxiter = 500;
+    int Maxiter = 120;
     int iter    = 1;
 
     arma::vec seq_sigma = zeros(Maxiter);
@@ -611,12 +686,14 @@ List EMalgorithm(const arma::vec& z_em,
     arma::mat Q1_em = 0.1 * eye((p_em+1)*J_em,(p_em+1)*J_em);
     
     arma::vec alphahat_em = zeros(J_em * n_em);
+    arma::vec alphahat_old = zeros(J_em * n_em);
     arma::mat Sigmahat_em = zeros(J_em * n_em, J_em);
     arma::mat Vhat_em     = zeros(J_em * n_em, J_em * (p_em+1));
     double criteria = 1.0;
     
-    while(iter <= Maxiter && criteria > 1e-2){ //Sep 12, change 1e-3 to 1e-2
-   
+    while(iter <= Maxiter && criteria > 0.001){ //Sep 12, change 1e-3 to 1e-2
+    //while(iter <= 120){
+        alphahat_old = alphahat_em;
         double sigma02_em = sigma2_em;
         
         arma::mat T_em = Tcreate(K_em, J_em, p_em);
@@ -680,13 +757,13 @@ List EMalgorithm(const arma::vec& z_em,
             
             
             //update thetac
-            thetac_em = theta_c_update(z_em,B_em,c_em,thetab_em,Theta_em,
-                                       alphahat_em,Pt_em,ni_em,sigma2_em,lambmut_em); //normalization
+            //thetac_em = theta_c_update(z_em,B_em,c_em,thetab_em,Theta_em,
+            //                           alphahat_em,Pt_em,ni_em,sigma2_em,lambmut_em); //normalization
             //cout << min(thetac_em) << " " << max(thetac_em) << endl;
             
             
             //update thetab
-            thetab_em = theta_b_update(z_em,B_em,c_em,thetac_em,thetab_em, Theta_em,alphahat_em,Ps_em,ni_em,sigma2_em,lambmus_em);
+            thetab_em = theta_b_update_mu1(z_em,B_em,c_em,thetac_em,thetab_em, Theta_em,alphahat_em,Ps_em,ni_em,sigma2_em,lambmus_em);
             //cout << thetab_em << endl;
             
             
@@ -801,9 +878,11 @@ List EMalgorithm(const arma::vec& z_em,
         seq_HJ.submat((iter-1)*J_em, 0, size(HJ_em)) = HJ_em;
         
         if(iter >=2){
-            arma::vec criteria0=zeros(2);
+            arma::vec criteria0=zeros(3);
             criteria0(0) = abs(sigma2_em - sigma02_em)/(abs(sigma02_em)+0.01);
             criteria0(1) = norm(K_em - seq_K.subvec((iter-2)*p_em, (iter-1)*p_em-1))/(norm(seq_K.subvec((iter-2)*p_em, (iter-1)*p_em-1))+0.01);
+            criteria0(2) = norm(alphahat_old - alphahat_em)/(norm(alphahat_old)+0.01);
+            
             criteria = max(criteria0);
         }   // for stopping criteria
         
@@ -831,3 +910,6 @@ List EMalgorithm(const arma::vec& z_em,
                         Named("Sigmahat") = Sigmahat_em,
                         Named("iter")     = iter-1);
 }
+
+
+

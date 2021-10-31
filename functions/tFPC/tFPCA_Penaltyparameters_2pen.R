@@ -4,14 +4,13 @@ simplex <- function(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ini
   beta=0.5
   gamma=0.5
   
-  design = matrix(ncol=3,nrow=4)
-  design[1,]=c(init[1],0.0,init[3])
-  design[2,]=c(init[1],init[2],0.0)
-  design[3,]=c(0.0,init[2],init[3])
-  design[4,]=0.618*c(init[1],init[2],init[3])
-  y=rep(0,4)
-  for(i in 1:4){
-    y[i] = CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,design[i,1],design[i,2],design[i,3],char)
+  design = matrix(ncol=2,nrow=3)
+  design[1,]=c(init[1],0.0001) #default c(5,0) #Jun 3, 2020
+  design[2,]=c(0.0001,init[2]) #default c(0,5) #Jun 3, 2020
+  design[3,]=0.618*c(init[1],init[2])
+  y=rep(0,3)
+  for(i in 1:3){
+    y[i] = CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,design[i,1],0,design[i,2],char)
   }
   
   
@@ -27,19 +26,19 @@ simplex <- function(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ini
     # ind_l=(1:3)[y==min(y)]
     ord = order(y)
     ind_l=ord[1]
-    ind_h=ord[4]
+    ind_h=ord[3]
     barP = apply(design[-ind_h,],2,mean)
     barP[barP<0]=0
     starP = (1+alpha)*barP-alpha*design[ind_h,]
     starP[starP<0]=0
     
-    print(paste("currently run", starP[1],starP[2],starP[3], sep=" "))
-    stary=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,starP[1],starP[2],starP[3],char)
+    print(paste("currently run", starP[1],starP[2], sep=" "))
+    stary=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,starP[1],0,starP[2],char)
     if(stary<y[ind_l]){
       ssP=(1+gamma)*starP - gamma*barP
       ssP[ssP<0]=0
-      print(paste("currently run", ssP[1],ssP[2],ssP[3], sep=" "))
-      ssy=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ssP[1],ssP[2],ssP[3],char)
+      print(paste("currently run", ssP[1], ssP[2], sep=" "))
+      ssy=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ssP[1],0,ssP[2],char)
       if(ssy<y[ind_l]){
         design[ind_h,]=ssP
         y[ind_h]=ssy
@@ -58,14 +57,14 @@ simplex <- function(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ini
         }
         ssP=beta*design[ind_h,]+(1-beta)*barP
         ssP[ssP<0]=0
-        print(paste("currently run", ssP[1],ssP[2],ssP[3], sep=" "))
-        ssy=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ssP[1],ssP[2],ssP[3],char)
+        print(paste("currently run", ssP[1],ssP[2], sep=" "))
+        ssy=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,ssP[1],0,ssP[2],char)
         if(ssy>y[ind_h]){
           design=(design+design[ind_l,])/2
-          for(i in 1:4)
+          for(i in 1:3)
           {
-          	print(paste("currently run", design[i,1],design[i,2],design[i,3], sep=" "))
-            y[i]=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,design[i,1],design[i,2],design[i,3],char)
+          	print(paste("currently run", design[i,1],design[i,2], sep=" "))
+            y[i]=CrossVal(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,design[i,1],0,design[i,2],char)
           }
         }else{
           design[ind_h,]=ssP

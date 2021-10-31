@@ -107,7 +107,7 @@ Rcpp::List EM_algorithm(const arma::vec& z_em,
         sigma2hat_em  = temp/sum(ni_em);
         Dhat_em       = temp2/n_em;
         thetamuhat_em = inv(temp3 + sigma2_em * lambmu_em * P_em) * temp4;
-        
+        //test Aug 12, 2021
         
         for(int j=1; j<=J_em; j++){
             arma::mat temp5 = zeros(nbasis_em,nbasis_em);
@@ -169,7 +169,8 @@ Rcpp::List EM_algorithm(const arma::vec& z_em,
                         Named("alpha")    = alpha_em,
                         Named("sigma2")   = sigma2_em,
                         Named("iter")     = iter,
-                        Named("D")        = D_em);
+                        Named("D")        = D_em,
+                        Named("Sigma")    = Sigma_em);
     
 }
 

@@ -461,7 +461,7 @@ locate=function(matrix1.lc,matrix2.lc){
  			t1.sm=t2.sm
  			t2.sm=temp.sm
  			} else
-            e2.sm=e2.sm-3             
+            e2.sm=e2.sm-3              #why -3???
 
  		v4.sm=T2.sm[T2.sm%in%c(v1.sm,v2.sm)==FALSE]
         V4.sm=V.sm[v4.sm,]             #coordinate of v4.sm

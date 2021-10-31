@@ -85,13 +85,13 @@ CrossVal <- function(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,la
     P = t(omat)%*%Ene%*%(omat)  ##penalty matrix corresponding to theta
     basis_negk = rawbasis_negk%*%omat  ##exact basis we want.
     basis_k = rawbasis_k%*%omat
-    if(basis_negk[1,1]<0) {basis_negk = -basis_negk}    ##make sure that basis[1,1] is positive
-    if(basis_k[1,1]<0) {basis_k = -basis_k}
+    #if(basis_negk[1,1]<0) {basis_negk = -basis_negk}    ##make sure that basis[1,1] is positive
+    #if(basis_k[1,1]<0) {basis_k = -basis_k}
     
     
     #initial values
-    set.seed(1) # for fixing the randomness of initial values
-    K0 = c(0.8,0.1)
+    #set.seed(1) # for fixing the randomness of initial values
+    K0 = c(0.5,0.5)
     sigma20 = 1
     HJ0 = diag(2)
     Theta0 = matrix(runif(2*nb,-1,1),ncol=2)
@@ -117,7 +117,7 @@ CrossVal <- function(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,la
 	for(t in 1:n){
     	Bt = basis_negk[indfunc(t,ni_negk),]
     	pcpart_t = pcpart[indfunc(t,ni_negk)]
-    	ft = solve(t(Bt) %*% Bt +  0.001 * diag(ncol(Bt))) %*% t(Bt) %*% pcpart_t
+    	ft = solve(t(Bt) %*% Bt +  0.0001 * diag(ncol(Bt))) %*% t(Bt) %*% pcpart_t
     	f = cbind(f,ft)
 	}
 
@@ -175,11 +175,13 @@ CrossVal <- function(K_fold,z,point,edges,n,d,r,J,p,station,ni,basismatrix,Pt,la
         temp = c(temp,zt_k - Bt_k %*% theta_bc %*% basismatrix[t,] - Bt_k %*% Thetahat %*% alphahat_t)
     }
     ######criteria of the cross-validation
-    tMSE = sum(temp^2)/sum(ni_k)
+    #tMSE = sum(temp^2)/sum(ni_k)
+    tMSE = sum(temp^2)
+    print(tMSE)
     ave_tMSE = ave_tMSE + tMSE
   } #loop k
-  ave_tMSE = ave_tMSE/K_fold
-  print(c("the Cross-validation result is",ave_tMSE))
+  #ave_tMSE = ave_tMSE/K_fold
+  print(c("the criteria of tFPCA is",ave_tMSE))
   print(paste("the penalty parameters are", lambmus, lambmut, lambpc, sep=" "))
 
   return(ave_tMSE)

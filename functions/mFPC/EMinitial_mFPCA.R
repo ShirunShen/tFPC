@@ -2,7 +2,7 @@
 
 ## initialize the value ##
 EMinitial <- function(z,ni,basis,J){
-  lambda = 0.001 #default 1  ##ridege parameter
+  lambda = 0.001 #default 0.001  ##ridege parameter
   f = {}
   sigma20 = 0
   for(i in 1:length(ni)){

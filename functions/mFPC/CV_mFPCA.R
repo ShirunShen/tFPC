@@ -1,4 +1,5 @@
 CrossVal <- function(K_fold,J,z,rawbasis,ni,Q2,K,lambmu,lambpc){
+  set.seed(1)
   indseq = sample(1:ni[1], ni[1], replace=FALSE)
   for(i in 2:length(ni)){
     ind = sum(ni[1:(i-1)]) + sample(1:ni[i], ni[i], replace=FALSE)
@@ -8,7 +9,8 @@ CrossVal <- function(K_fold,J,z,rawbasis,ni,Q2,K,lambmu,lambpc){
   
   
   for(k in 1:K_fold){
-    
+    print(paste("currently run the ", k, "-th fold",sep=""))
+
     bindwidth = ceiling(ni[1]/K_fold)
     ni_negk = ni[1] - bindwidth
     if(k==K_fold){
@@ -64,8 +66,8 @@ CrossVal <- function(K_fold,J,z,rawbasis,ni,Q2,K,lambmu,lambpc){
     P = t(omat)%*%K%*%(omat)  ##penalty matrix corresponding to theta
     basis_negk = rawbasis_negk%*%omat  ##exact basis we want.
     basis_k = rawbasis_k%*%omat
-    if(basis_negk[1,1]<0) {basis_negk = -basis_negk}    ##make sure that basis[1,1] is positive
-    if(basis_k[1,1]<0) {basis_k = -basis_k}
+    #if(basis_negk[1,1]<0) {basis_negk = -basis_negk}    ##make sure that basis[1,1] is positive
+    #if(basis_k[1,1]<0) {basis_k = -basis_k}
     
     EMinit = EMinitial(z_negk,ni_negk,basis_negk,J)
     sigma20 = EMinit$sigma20
@@ -96,14 +98,23 @@ CrossVal <- function(K_fold,J,z,rawbasis,ni,Q2,K,lambmu,lambpc){
       Di = diag(temp2$d)
       Ui = temp2$u
       Vi = temp2$v
-      temp3 = zi-Bi%*%thetamuhat
-      lik_ki = as.numeric(log(sum(temp2$d))+t(temp3) %*% Vi %*% Di %*% t(Ui) %*% temp3)
+      alphahat_i = alphahat[,i]
+      #temp3 = zi-Bi%*%thetamuhat
+      #lik_ki = as.numeric(log(sum(temp2$d))+t(temp3) %*% Vi %*% Di %*% t(Ui) %*% temp3)
+      temp3 = zi - Bi %*% thetamuhat - Bi %*% Thetahat %*% alphahat[,i]
+      lik_ki = as.numeric(sum(temp3^2))
       lik_k = lik_k + lik_ki
-    }
+    } #loop i
+    print(lik_k)
+    #lik_k = lik_k / sum(ni_k)
     neglik = neglik + lik_k
   } #loop k
   
-  print(c("the criterion of mFPCA is",neglik/sum(ni)))
-  return(neglik/(sum(ni)))
+  print(c("the criterion of mFPCA is",neglik))
+  print(paste("the penalty parameters are", lambmu, lambpc, sep=" "))
+
+  return(neglik)
+  #print(c("the criterion of mFPCA is",neglik/sum(ni)))
+  #return(neglik/(sum(ni)))
 }
 

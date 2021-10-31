@@ -5,7 +5,7 @@ simplex <- function(K_fold,basis,P,basismatrix,Pt,z,point,edges,n,d,r,J,p,ni,ini
   gamma=0.5
   
   design = matrix(ncol=3,nrow=4)
-  design[1,]=c(init[1],0.0001,init[3])
+  design[1,]=c(init[1],0.000001,init[3])
   design[2,]=c(init[1],init[2],0.0001)
   design[3,]=c(0.0001,init[2],init[3])
   design[4,]=0.618*c(init[1],init[2],init[3])

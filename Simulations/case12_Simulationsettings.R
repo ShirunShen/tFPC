@@ -4,12 +4,10 @@
 
 ##mean function mu(x,y)
 mufunc <- function(x,y,t){
+    #mu <- exp(sqrt(0.5*(x-0.6)^2 + 0.8*y)) * abs(cos(1+t*pi/50));
     mu1 <- 5*exp(sqrt(0.1*x^2 + 0.2*y)) + 5*exp(-sqrt(0.1*x^2 + 0.2*y))
-    #mu1 <- 13 + 1.5 * (x+y)
-    #mu1 <- 5 * x + 10 * y
-    #mu1 <- 0
-    #mu2 <- cos(2*pi*t/12) + 1*t/500 #default 0.05*t/500
-    mu2 <- 1
+    mu2 <- cos(2*pi*t/12) + 1*t/500 #default 0.05*t/500
+    #mu2 <- 1
     return(mu1*mu2)
 }
 
